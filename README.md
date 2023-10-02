@@ -6,7 +6,7 @@ Sample code to implement a repository layer on multiple database implementations
 
 sqlx compile time query check is disabled because we are developing queries for different databases. This is done by setting `SQLX_OFFLINE=true` env var, in our case it is set [here](.cargo/config.toml), along with other env vars.
 
-## Preparation
+## Prepare
 
 ### sqlx
 
@@ -23,13 +23,23 @@ sqlx compile time query check is disabled because we are developing queries for 
 1. `sqlx database create -D sqlite:sandbox-sqlx-sqlite.db`
 2. `sqlx migrate run --source migrations/sqlite -D sqlite:sandbox-sqlx-sqlite.db`
 
+## Execute
+
+### Sqlite
+
+1. `cargo run -- sqlite`
+
+### Postgres
+
+1. `cargo run -- postgres`
 
 ## Cleanup
 
 ### Postgres
 
-1. `docker stop sandbox-sqlx-postgres`
-1. `docker rm sandbox-sqlx-postgres`
+1. `sqlx database drop -D postgres://postgres:sandbox@localhost:5000/sandbox`
+2. `docker stop sandbox-sqlx-postgres`
+3. `docker rm sandbox-sqlx-postgres`
 
 ### Sqlite
 

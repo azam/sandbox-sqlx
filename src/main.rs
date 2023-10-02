@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use sqlx::Sqlite;
+use sqlx::{Database, Postgres, Sqlite};
 
 enum DatabaseTypes {
     Sqlite,
@@ -10,12 +10,21 @@ enum DatabaseTypes {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = std::env::args().collect();
-    println!("{:?}", &args);
-    let pool = sqlx::SqlitePool::connect(std::env::var("SANDBOX_SQLITE_URL")?.as_str()).await?;
-    let state = State {
-        repo: Arc::new(SqliteRepository { pool }),
+    let arg = std::env::args().nth(1).ok_or("invalid args".to_owned())?;
+    let db = match arg.as_str() {
+        "sqlite" => DatabaseTypes::Sqlite,
+        "postgres" => DatabaseTypes::Postgres,
+        _ => return Err("invalid args".into()),
     };
+    let repo: Arc<dyn Repository> = match db {
+        DatabaseTypes::Sqlite => Arc::new(SqliteRepository {
+            pool: sqlx::SqlitePool::connect(std::env::var("SANDBOX_SQLITE_URL")?.as_str()).await?,
+        }),
+        DatabaseTypes::Postgres => Arc::new(PostgresRepository {
+            pool: sqlx::PgPool::connect(std::env::var("SANDBOX_POSTGRES_URL")?.as_str()).await?,
+        }),
+    };
+    let state = State { repo };
     let users = state.repo.list().await;
     println!("{:?}", users);
     return Ok(());
@@ -46,6 +55,22 @@ struct SqliteRepository {
 impl Repository for SqliteRepository {
     async fn list(&self) -> Vec<User> {
         let users = sqlx::query_as::<Sqlite, User>("SELECT * FROM \"users\"")
+            .fetch_all(&self.pool)
+            .await
+            .unwrap();
+        return users;
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PostgresRepository {
+    pool: sqlx::PgPool,
+}
+
+#[async_trait]
+impl Repository for PostgresRepository {
+    async fn list(&self) -> Vec<User> {
+        let users = sqlx::query_as::<Postgres, User>("SELECT * FROM \"users\"")
             .fetch_all(&self.pool)
             .await
             .unwrap();

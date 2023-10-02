@@ -1,5 +1,5 @@
 CREATE TABLE "users" (
-    "id" INTEGER,
+    "id" BIGINT,
     "name" TEXT,
     PRIMARY KEY ("id")
 )
