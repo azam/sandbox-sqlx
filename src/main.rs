@@ -3,9 +3,22 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use sqlx::Sqlite;
 
+enum DatabaseTypes {
+    Sqlite,
+    Postgres,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    start().await
+    let args: Vec<String> = std::env::args().collect();
+    println!("{:?}", &args);
+    let pool = sqlx::SqlitePool::connect(std::env::var("SANDBOX_SQLITE_URL")?.as_str()).await?;
+    let state = State {
+        repo: Arc::new(SqliteRepository { pool }),
+    };
+    let users = state.repo.list().await;
+    println!("{:?}", users);
+    return Ok(());
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -38,14 +51,4 @@ impl Repository for SqliteRepository {
             .unwrap();
         return users;
     }
-}
-
-async fn start() -> Result<(), Box<dyn std::error::Error>> {
-    let pool = sqlx::SqlitePool::connect("sqlite:sandbox.db").await?;
-    let state = State {
-        repo: Arc::new(SqliteRepository { pool }),
-    };
-    let users = state.repo.list().await;
-    println!("{:?}", users);
-    return Ok(());
 }

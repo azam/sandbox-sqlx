@@ -1,2 +1,4 @@
 [env]
 SQLX_OFFLINE="true"
+SANDBOX_SQLITE_URL="sqlite:sandbox-sqlx-sqlite.db "
+SANDBOX_POSTGRES_URL="postgres://postgres:sandbox@localhost:5000/sandbox"
