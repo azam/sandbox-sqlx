@@ -56,10 +56,13 @@ where
     pool: sqlx::pool::Pool<DB>,
 }
 
-impl Repo<Sqlite> {
-    pub fn new(url: &str) -> Self {
+/**
+ * Common functions, generic to all database
+ */
+impl<DB> Repo<DB> where DB: Database {
+    pub fn new(url: &str) -> Repo<DB> {
         Self {
-            pool: sqlx::SqlitePool::connect_lazy(url).unwrap(),
+            pool: sqlx::pool::Pool::connect_lazy(url).unwrap(),
         }
     }
 }
@@ -79,14 +82,6 @@ impl Repository for Repo<Sqlite> {
             .fetch_optional(&self.pool)
             .await
             .unwrap()
-    }
-}
-
-impl Repo<Postgres> {
-    pub fn new(url: &str) -> Self {
-        Self {
-            pool: sqlx::PgPool::connect_lazy(url).unwrap(),
-        }
     }
 }
 
