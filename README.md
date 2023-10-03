@@ -2,6 +2,14 @@
 
 Sample code to implement a repository layer on multiple database implementations.
 
+## Problem statement
+
+* I have an async application that needs database access.
+  * Need the instance to have Clone and Send traits
+* I need to support two (or more) different databases at runtime.
+  * Using Sqlite & Postgres
+* Database is set at application startup from config.
+
 ## Configuration
 
 sqlx compile time query check is disabled because we are developing queries for different databases. This is done by setting `SQLX_OFFLINE=true` env var, in our case it is set [here](.cargo/config.toml), along with other env vars.

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use sqlx::{Database, Postgres, Sqlite};
+use sqlx::{database::Database, postgres::Postgres, sqlite::Sqlite};
 
 enum DatabaseTypes {
     Sqlite,
@@ -17,16 +17,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => return Err("invalid args".into()),
     };
     let repo: Arc<dyn Repository> = match db {
-        DatabaseTypes::Sqlite => Arc::new(SqliteRepository {
-            pool: sqlx::SqlitePool::connect(std::env::var("SANDBOX_SQLITE_URL")?.as_str()).await?,
-        }),
-        DatabaseTypes::Postgres => Arc::new(PostgresRepository {
-            pool: sqlx::PgPool::connect(std::env::var("SANDBOX_POSTGRES_URL")?.as_str()).await?,
-        }),
+        DatabaseTypes::Sqlite => Arc::new(Repo::<Sqlite>::new(
+            std::env::var("SANDBOX_SQLITE_URL")?.as_str(),
+        )),
+        DatabaseTypes::Postgres => Arc::new(Repo::<Postgres>::new(
+            std::env::var("SANDBOX_POSTGRES_URL")?.as_str(),
+        )),
     };
     let state = State { repo };
-    let users = state.repo.list().await;
-    println!("{:?}", users);
+    println!("list(): {:?}", state.repo.list().await);
+    println!("get(1): {:?}", state.repo.get(1).await);
+    println!("get(7): {:?}", state.repo.get(7).await);
     return Ok(());
 }
 
@@ -39,6 +40,7 @@ struct User {
 #[async_trait]
 trait Repository: std::fmt::Debug {
     async fn list(&self) -> Vec<User>;
+    async fn get(&self, id: i64) -> Option<User>;
 }
 
 #[derive(Debug, Clone)]
@@ -46,34 +48,62 @@ struct State {
     repo: Arc<dyn Repository>, // Cannot use box because it requires Clone trait
 }
 
-#[derive(Debug, Clone)]
-struct SqliteRepository {
-    pool: sqlx::SqlitePool,
+#[derive(Debug)]
+struct Repo<DB>
+where
+    DB: Database,
+{
+    pool: sqlx::pool::Pool<DB>,
 }
 
-#[async_trait]
-impl Repository for SqliteRepository {
-    async fn list(&self) -> Vec<User> {
-        let users = sqlx::query_as::<Sqlite, User>("SELECT * FROM \"users\"")
-            .fetch_all(&self.pool)
-            .await
-            .unwrap();
-        return users;
+impl Repo<Sqlite> {
+    pub fn new(url: &str) -> Self {
+        Self {
+            pool: sqlx::SqlitePool::connect_lazy(url).unwrap(),
+        }
     }
 }
 
-#[derive(Debug, Clone)]
-struct PostgresRepository {
-    pool: sqlx::PgPool,
+#[async_trait]
+impl Repository for Repo<Sqlite> {
+    async fn list(&self) -> Vec<User> {
+        sqlx::query_as("SELECT * FROM \"users\"")
+            .fetch_all(&self.pool)
+            .await
+            .unwrap()
+    }
+
+    async fn get(&self, id: i64) -> Option<User> {
+        sqlx::query_as("SELECT * FROM \"users\" WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .unwrap()
+    }
+}
+
+impl Repo<Postgres> {
+    pub fn new(url: &str) -> Self {
+        Self {
+            pool: sqlx::PgPool::connect_lazy(url).unwrap(),
+        }
+    }
 }
 
 #[async_trait]
-impl Repository for PostgresRepository {
+impl Repository for Repo<Postgres> {
     async fn list(&self) -> Vec<User> {
-        let users = sqlx::query_as::<Postgres, User>("SELECT * FROM \"users\"")
+        sqlx::query_as("SELECT * FROM \"users\"")
             .fetch_all(&self.pool)
             .await
-            .unwrap();
-        return users;
+            .unwrap()
+    }
+
+    async fn get(&self, id: i64) -> Option<User> {
+        sqlx::query_as("SELECT * FROM \"users\" WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .unwrap()
     }
 }
